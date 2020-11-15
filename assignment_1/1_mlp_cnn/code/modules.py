@@ -31,7 +31,7 @@ class LinearModule(object):
 
         self.params = dict(
             weight=np.random.normal(loc=0, scale=0.0001, size=(out_features, in_features)),
-            bias=np.zeros(out_features)
+            bias=np.zeros((1, out_features))
         )
         self.result_forward = None
         self.x = None
@@ -90,7 +90,8 @@ class LinearModule(object):
 
         dL_dY = dout
         dL_dW = dL_dY.T @ self.x
-        dL_db = dL_dY @ np.ones(dL_dY.shape[1])
+        # dL_db = dL_dY @ np.ones(dL_dY.shape[1])
+        dL_db = np.ones((1, self.x.shape[0])) @ dL_dY
         dL_dX = dL_dY @ self.params['weight']
 
         self.grads = dict(

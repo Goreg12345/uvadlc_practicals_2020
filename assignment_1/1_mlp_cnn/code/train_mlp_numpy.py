@@ -47,8 +47,8 @@ def accuracy(predictions, targets):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    right_preds = np.sum(np.argmax(predictions, dim=1) == np.argmax(targets, dim=1))
-    accuracy = right_preds.float() / float(predictions.shape[0])
+    right_preds = np.sum(np.argmax(predictions, axis=1) == np.argmax(targets, axis=1))
+    accuracy = float(right_preds) / float(predictions.shape[0])
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -89,19 +89,40 @@ def train():
             for layer in self.layers:
                 try:
                     layer.grads
-                except layer.grads.DoesNotExist:
+                except Exception as e:
                     continue
                 layer.params['weight'] -= self.learning_rate * layer.grads['weight']
                 layer.params['bias'] -= self.learning_rate * layer.grads['bias']
 
-    def eval(model):
+    def eval(model, accuracies, losses):
         x, y = test_data.next_batch(1000)
         preds = model.forward(np.reshape(x, (x.shape[0], -1)))
-        preds = np.flatten(preds)
 
         loss = loss_module.forward(preds, y)
         print("Test Loss", loss)
         print("Test Accuracy: ", accuracy(preds, y))
+        accuracies['val_scores'].append(accuracy(preds, y))
+        losses['val_scores'].append(loss)
+
+        x, y = train_data.next_batch(1000)
+        preds = model.forward(np.reshape(x, (x.shape[0], -1)))
+        loss = loss_module.forward(preds, y)
+        accuracies['train_scores'].append(accuracy(preds, y))
+        losses['train_scores'].append(loss)
+
+    def plot_history(results, ylabel, title="Validation performance of ", model_name=""):
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+
+        sns.set()
+        plt.plot([i for i in range(1, len(results["train_scores"]) + 1)], results["train_scores"], label="Train")
+        plt.plot([i for i in range(1, len(results["val_scores"]) + 1)], results["val_scores"], label="Val")
+        plt.xlabel("Epochs")
+        plt.ylabel(ylabel)
+        plt.ylim(min(results["val_scores"]), max(results["train_scores"]) * 1.01)
+        plt.title(title + model_name)
+        plt.legend()
+        plt.show()
 
     cifar10 = cifar10_utils.get_cifar10(FLAGS.data_dir)
     train_data = cifar10_utils.DataSet(cifar10['train'].images, cifar10['train'].labels)
@@ -112,20 +133,23 @@ def train():
     loss_module = CrossEntropyModule()
     optimizer = SGD(model.layers, FLAGS.learning_rate)
 
+    accuracies = dict(train_scores=list(), val_scores=list())
+    losses = dict(train_scores=list(), val_scores=list())
     for i in range(FLAGS.max_steps):
         x, y = train_data.next_batch(FLAGS.batch_size)
         preds = model.forward(np.reshape(x, (FLAGS.batch_size, -1)))
 
         loss = loss_module.forward(preds, y)
-        print(loss)
         model.backward(loss_module.backward(preds, y))
 
         optimizer.step()
 
         if i % FLAGS.eval_freq == FLAGS.eval_freq - 1:
-            eval(model)
+            print("Train loss: ", loss)
+            eval(model, accuracies=accuracies, losses=losses)
 
-    eval(model)
+    plot_history(accuracies, "Accuracies", model_name="VGG19")
+    plot_history(losses, "Losses", title="Train and Validation Losses of ", model_name="VGG19")
 
     ########################
     # END OF YOUR CODE    #

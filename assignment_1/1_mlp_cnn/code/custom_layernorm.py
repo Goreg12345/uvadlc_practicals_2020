@@ -39,7 +39,8 @@ class CustomLayerNormAutograd(nn.Module):
         # PUT YOUR CODE HERE  #
         #######################
         
-        raise NotImplementedError
+        self.register_parameter('gamma', nn.Parameter(torch.Tensor(0.5)))
+        self.register_parameter('beta', nn.Parameter(torch.Tensor(0.5)))
         
         ########################
         # END OF YOUR CODE    #

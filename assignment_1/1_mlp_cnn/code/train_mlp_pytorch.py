@@ -26,7 +26,7 @@ EVAL_FREQ_DEFAULT = 100
 
 
 # Directory in which cifar data is saved
-DATA_DIR_DEFAULT = './cifar10/cifar-10-batches-py'
+DATA_DIR_DEFAULT = f'cifar10/cifar-10-batches-py'
 
 FLAGS = None
 
@@ -107,7 +107,7 @@ def train():
 
     device = torch.device('cuda')
 
-    cifar10 = cifar10_utils.get_cifar10(f'cifar10/cifar-10-batches-py')
+    cifar10 = cifar10_utils.get_cifar10(FLAGS.data_dir)
     train_data = cifar10_utils.DataSet(cifar10['train'].images, cifar10['train'].labels)
     test_data = cifar10_utils.DataSet(cifar10['test'].images, cifar10['test'].labels)
 
@@ -119,8 +119,6 @@ def train():
             model.parameters(), lr=hyperparameter['learning_rate']
         )
 
-        # train_loader = torch.utils.data.Dataloader(train_data, batch_size=FLAGS.batch_size, shuffle=True, drop_last=True)
-
         results = dict(train_scores=list(), val_scores=list())
         for i in range(hyperparameter['n_steps']):
             x, y = train_data.next_batch(FLAGS.batch_size)
@@ -130,7 +128,7 @@ def train():
             preds = model(torch.flatten(x, start_dim=1))
             preds = preds.squeeze(dim=1)
 
-            if i % 500 == 499:
+            if i % FLAGS.eval_freq == FLAGS.eval_freq - 1:
                 results['train_scores'].append(accuracy(preds, y).cpu())
 
                 x_test, y_test = test_data.next_batch(300)
@@ -159,7 +157,6 @@ def train():
 
         print("Test Accuracy: ", accuracy(preds, y))
         return accuracy(preds, y)
-
 
     # Randomized Search
     search_space = dict(

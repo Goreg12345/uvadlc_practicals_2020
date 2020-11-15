@@ -26,7 +26,7 @@ EVAL_FREQ_DEFAULT = 500
 OPTIMIZER_DEFAULT = 'ADAM'
 
 # Directory in which cifar data is saved
-DATA_DIR_DEFAULT = './cifar10/cifar-10-batches-py'
+DATA_DIR_DEFAULT = f'cifar10/cifar-10-batches-py'
 
 FLAGS = None
 
@@ -116,7 +116,7 @@ def train():
 
     device = torch.device('cuda')
 
-    cifar10 = cifar10_utils.get_cifar10(f'cifar10/cifar-10-batches-py')
+    cifar10 = cifar10_utils.get_cifar10(FLAGS.data_dir)
     train_data = cifar10_utils.DataSet(cifar10['train'].images, cifar10['train'].labels)
     test_data = cifar10_utils.DataSet(cifar10['test'].images, cifar10['test'].labels)
 

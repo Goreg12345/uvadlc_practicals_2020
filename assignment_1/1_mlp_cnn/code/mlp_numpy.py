@@ -68,6 +68,7 @@ class MLP(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        x = x / 2.
         for layer in self.layers:
             x = layer.forward(x)
         out = x
