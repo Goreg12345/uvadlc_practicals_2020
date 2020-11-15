@@ -21,7 +21,7 @@ BATCH_SIZE_DEFAULT = 200
 EVAL_FREQ_DEFAULT = 100
 
 # Directory in which cifar data is saved
-DATA_DIR_DEFAULT = './cifar10/cifar-10-batches-py'
+DATA_DIR_DEFAULT = f'cifar10/cifar-10-batches-py'
 
 FLAGS = None
 
@@ -47,7 +47,8 @@ def accuracy(predictions, targets):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    right_preds = np.sum(np.argmax(predictions, dim=1) == np.argmax(targets, dim=1))
+    accuracy = right_preds.float() / float(predictions.shape[0])
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -78,7 +79,54 @@ def train():
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+
+    class SGD(object):
+        def __init__(self, layers, learning_rate):
+            self.layers = layers
+            self.learning_rate = learning_rate
+
+        def step(self):
+            for layer in self.layers:
+                try:
+                    layer.grads
+                except layer.grads.DoesNotExist:
+                    continue
+                layer.params['weight'] -= self.learning_rate * layer.grads['weight']
+                layer.params['bias'] -= self.learning_rate * layer.grads['bias']
+
+    def eval(model):
+        x, y = test_data.next_batch(1000)
+        preds = model.forward(np.reshape(x, (x.shape[0], -1)))
+        preds = np.flatten(preds)
+
+        loss = loss_module.forward(preds, y)
+        print("Test Loss", loss)
+        print("Test Accuracy: ", accuracy(preds, y))
+
+    cifar10 = cifar10_utils.get_cifar10(FLAGS.data_dir)
+    train_data = cifar10_utils.DataSet(cifar10['train'].images, cifar10['train'].labels)
+    test_data = cifar10_utils.DataSet(cifar10['test'].images, cifar10['test'].labels)
+
+    model = MLP(3 * 32 * 32, dnn_hidden_units, 10)
+
+    loss_module = CrossEntropyModule()
+    optimizer = SGD(model.layers, FLAGS.learning_rate)
+
+    for i in range(FLAGS.max_steps):
+        x, y = train_data.next_batch(FLAGS.batch_size)
+        preds = model.forward(np.reshape(x, (FLAGS.batch_size, -1)))
+
+        loss = loss_module.forward(preds, y)
+        print(loss)
+        model.backward(loss_module.backward(preds, y))
+
+        optimizer.step()
+
+        if i % FLAGS.eval_freq == FLAGS.eval_freq - 1:
+            eval(model)
+
+    eval(model)
+
     ########################
     # END OF YOUR CODE    #
     #######################

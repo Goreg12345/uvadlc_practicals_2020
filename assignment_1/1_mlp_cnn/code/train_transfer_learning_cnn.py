@@ -9,18 +9,19 @@ from __future__ import print_function
 import argparse
 import numpy as np
 import os
+
+import torchvision
+
 from convnet_pytorch import ConvNet
 import cifar10_utils
 
 import torch
 import torch.nn as nn
 
-import torchvision
-
 # Default constants
 LEARNING_RATE_DEFAULT = 1e-4
 BATCH_SIZE_DEFAULT = 32
-MAX_STEPS_DEFAULT = 500
+MAX_STEPS_DEFAULT = 5000
 EVAL_FREQ_DEFAULT = 500
 OPTIMIZER_DEFAULT = 'ADAM'
 
@@ -78,7 +79,7 @@ def train():
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    def plot_history(results, title="Validation performance of ", model_name=""):
+    def plot_history(results, ylabel, title="Validation performance of ", model_name=""):
         import matplotlib.pyplot as plt
         import seaborn as sns
 
@@ -86,7 +87,7 @@ def train():
         plt.plot([i for i in range(1, len(results["train_scores"]) + 1)], results["train_scores"], label="Train")
         plt.plot([i for i in range(1, len(results["val_scores"]) + 1)], results["val_scores"], label="Val")
         plt.xlabel("Epochs")
-        plt.ylabel("Validation accuracy")
+        plt.ylabel(ylabel)
         plt.ylim(min(results["val_scores"]), max(results["train_scores"]) * 1.01)
         plt.title(title + model_name)
         plt.legend()
@@ -100,19 +101,18 @@ def train():
             preds = model(x_train)
             preds = preds.squeeze(dim=1)
             accuracies['train_scores'].append(accuracy(preds, y_train).cpu())
+            print("current step: ", accuracy(preds, y_train))
 
             _, y_train = torch.max(y_train, dim=1)
-            losses['train_scores'].append(loss_module(preds, y_train))
-            print("current step: ", accuracy(preds, y_train))
+            losses['train_scores'].append(loss_module(preds, y_train).cpu())
 
             preds = model(x_test)
             preds = preds.squeeze(dim=1)
             accuracies['val_scores'].append(accuracy(preds, y_test).cpu())
+            print("current val accuracy: ", accuracy(preds, y_test))
 
             _, y_test = torch.max(y_test, dim=1)
-            losses['val_scores'].append(loss_module(preds, y_test))
-
-            print("current val accuracy: ", accuracy(preds, y_test))
+            losses['val_scores'].append(loss_module(preds, y_test).cpu())
 
     device = torch.device('cuda')
 
@@ -121,7 +121,17 @@ def train():
     test_data = cifar10_utils.DataSet(cifar10['test'].images, cifar10['test'].labels)
 
     def fit(**hyperparameter):
-        model = torchvision.models.vgg19_bn(features=3, num_classes=10, pretrained=True).to(device)
+        model = torchvision.models.vgg13_bn(pretrained=True).to(device)
+        classifier = list(model.classifier.children())
+        classifier.pop()
+        classifier.append(torch.nn.Linear(4096, 10))
+        classifier = torch.nn.Sequential(*classifier).to(device)
+
+        for param in model.parameters():
+            param.requires_grad = False
+        for param in list(model.parameters())[-5:]:
+            param.requires_grad = True
+        model.classifier = classifier
 
         loss_module = nn.CrossEntropyLoss()
         optimizer = hyperparameter['optimizer'](
@@ -139,9 +149,10 @@ def train():
             preds = preds.squeeze(dim=1)
 
             if i % FLAGS.eval_freq == FLAGS.eval_freq - 1:
-                x_train, y_train = train_data.next_batch(2000)
-                x_test, y_test = test_data.next_batch(2000)
-                evaluate(model, x_train, y_train, x_test, y_test, loss_module, accuracies, losses)
+                if i % FLAGS.eval_freq == FLAGS.eval_freq - 1:
+                    x_train, y_train = train_data.next_batch(2000)
+                    x_test, y_test = test_data.next_batch(2000)
+                    evaluate(model, x_train, y_train, x_test, y_test, loss_module, accuracies, losses)
 
             _, y = torch.max(y, dim=1)
             loss = loss_module(preds, y)
@@ -150,19 +161,20 @@ def train():
             loss.backward()
             optimizer.step()
 
-        plot_history(accuracies, model_name="ConvNet")
-        plot_history(losses, title="Train and Validation Losses of ", model_name="ConvNet")
+        plot_history(accuracies, "Accuracies", model_name="VGG19")
+        plot_history(losses, "Losses", title="Train and Validation Losses of ", model_name="VGG19")
 
         # Test
-        x, y = test_data.next_batch(10000)
+        with torch.no_grad():
+            x, y = test_data.next_batch(2000)
 
-        x, y = torch.from_numpy(x).float().to(device), torch.from_numpy(y).long().to(device)
+            x, y = torch.from_numpy(x).float().to(device), torch.from_numpy(y).long().to(device)
 
-        preds = model(x)
-        preds = preds.squeeze(dim=1)
+            preds = model(x)
+            preds = preds.squeeze(dim=1)
 
-        print("Test Accuracy: ", accuracy(preds, y))
-        return accuracy(preds, y)
+            print("Test Accuracy: ", accuracy(preds, y))
+            return accuracy(preds, y)
 
     fit(
         optimizer=torch.optim.Adam,

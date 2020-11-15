@@ -131,9 +131,9 @@ class SoftMaxModule(object):
         #######################
 
         def exp_normalize(x):
-            b = x.max()
+            b = x.max(axis=1, keepdims=True)
             y = np.exp(x - b)
-            return y / np.sum(y, axis=1)
+            return y / np.sum(y, axis=1, keepdims=True)
 
         # exp = np.exp(x)
         # divisor = np.sum(exp, axis=1)
@@ -165,7 +165,11 @@ class SoftMaxModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
-        raise NotImplementedError
+        dx = list()
+        for i in range(dout.shape[0]):
+            dy_dx = np.multiply(self.out[i], np.identity(self.out.shape[1]) - self.out[i])
+            dx.append(dout[i] @ dy_dx)
+        dx = np.asarray(dx)
         
         ########################
         # END OF YOUR CODE    #
@@ -255,7 +259,8 @@ class ELUModule(object):
         # PUT YOUR CODE HERE  #
         #######################
         
-        raise NotImplementedError
+        out = np.where(x < 0, np.exp(x) - 1, x)
+        self.x = x
         
         ########################
         # END OF YOUR CODE    #
@@ -279,7 +284,7 @@ class ELUModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
-        raise NotImplementedError
+        dx = np.multiply(dout, np.where(self.x < 0, np.exp(self.x), 1))
 
         ########################
         # END OF YOUR CODE    #
