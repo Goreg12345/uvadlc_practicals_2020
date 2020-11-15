@@ -29,7 +29,13 @@ class LinearModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
-        raise NotImplementedError
+        self.params = dict(
+            weight=np.random.normal(loc=0, scale=0.0001, size=(out_features, in_features)),
+            bias=np.zeros(out_features)
+        )
+        self.result_forward = None
+        self.x = None
+        self.grads = None
         
         ########################
         # END OF YOUR CODE    #
@@ -54,7 +60,9 @@ class LinearModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
-        raise NotImplementedError
+        self.x = x
+        self.result_forward = x @ self.params['weight'].T + self.params['bias']
+        out = self.result_forward
         
         ########################
         # END OF YOUR CODE    #
@@ -80,7 +88,16 @@ class LinearModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
-        raise NotImplementedError
+        dL_dY = dout
+        dL_dW = dL_dY.T @ self.x
+        dL_db = dL_dY @ np.ones(dL_dY.shape[1])
+        dL_dX = dL_dY @ self.params['weight']
+
+        self.grads = dict(
+            weight=dL_dW,
+            bias=dL_db
+        )
+        dx = dL_dX
         
         ########################
         # END OF YOUR CODE    #
@@ -113,7 +130,18 @@ class SoftMaxModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
-        raise NotImplementedError
+        def exp_normalize(x):
+            b = x.max()
+            y = np.exp(x - b)
+            return y / np.sum(y, axis=1)
+
+        # exp = np.exp(x)
+        # divisor = np.sum(exp, axis=1)
+        # out = exp / divisor
+
+        out = exp_normalize(x)
+        self.out = out
+
         
         ########################
         # END OF YOUR CODE    #
@@ -168,7 +196,8 @@ class CrossEntropyModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
-        raise NotImplementedError
+        s = x.shape[0]
+        out = (-1 / s) * np.sum(np.multiply(y, np.log(x)))
         
         ########################
         # END OF YOUR CODE    #
@@ -193,7 +222,8 @@ class CrossEntropyModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
-        raise NotImplementedError
+        s = x.shape[0]
+        dx = (-1 / s) * np.multiply(y, 1 / x)
         
         ########################
         # END OF YOUR CODE    #

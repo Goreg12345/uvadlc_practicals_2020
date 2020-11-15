@@ -15,6 +15,8 @@ import cifar10_utils
 import torch
 import torch.nn as nn
 
+import random
+
 # Default constants
 DNN_HIDDEN_UNITS_DEFAULT = '100'
 LEARNING_RATE_DEFAULT = 1e-3
@@ -50,7 +52,10 @@ def accuracy(predictions, targets):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+
+    right_preds = torch.sum(torch.argmax(predictions, dim=1) == torch.argmax(targets, dim=1))
+    accuracy = right_preds.float() / float(predictions.shape[0])
+
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -73,18 +78,78 @@ def train():
 
     ## Prepare all functions
     # Get number of units in each hidden layer specified in the string such as 100,100
+
     if FLAGS.dnn_hidden_units:
         dnn_hidden_units = FLAGS.dnn_hidden_units.split(",")
         dnn_hidden_units = [int(dnn_hidden_unit_) for dnn_hidden_unit_ in dnn_hidden_units]
     else:
         dnn_hidden_units = []
     
-    neg_slope = FLAGS.neg_slope
+    # neg_slope = FLAGS.neg_slope
     
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+
+    device = torch.device('cuda')
+
+    cifar10 = cifar10_utils.get_cifar10(f'cifar10/cifar-10-batches-py')
+    train_data = cifar10_utils.DataSet(cifar10['train'].images, cifar10['train'].labels)
+    test_data = cifar10_utils.DataSet(cifar10['test'].images, cifar10['test'].labels)
+
+    def fit(hyperparameter):
+        model = MLP(3 * 32 * 32, hyperparameter['dnn_hidden_units'], 10).to(device)
+
+        loss_module = nn.CrossEntropyLoss()
+        optimizer = hyperparameter['optimizer'](
+            model.parameters(), lr=hyperparameter['learning_rate']
+        )
+
+        # train_loader = torch.utils.data.Dataloader(train_data, batch_size=FLAGS.batch_size, shuffle=True, drop_last=True)
+
+        for i in range(hyperparameter['n_steps']):
+            x, y = train_data.next_batch(FLAGS.batch_size)
+
+            x, y = torch.from_numpy(x).float().to(device), torch.from_numpy(y).long().to(device)
+
+            preds = model(torch.flatten(x, start_dim=1))
+            preds = preds.squeeze(dim=1)
+
+            if i % 50000 == 49999:
+                print("current step: ", accuracy(preds, y))
+
+            _, y = torch.max(y, dim=1)
+            loss = loss_module(preds, y)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        # Test
+        x, y = test_data.next_batch(10000)
+
+        x, y = torch.from_numpy(x).float().to(device), torch.from_numpy(y).long().to(device)
+
+        preds = model(torch.flatten(x, start_dim=1))
+        preds = preds.squeeze(dim=1)
+
+        print("Test Accuracy: ", accuracy(preds, y))
+
+
+    # Randomized Search
+    search_space = dict(
+        learning_rate=[0.0006, 0.001, 0.0015],
+        optimizer=[torch.optim.SGD, torch.optim.Adam, torch.optim.Adagrad, torch.optim.RMSprop],
+        n_steps=np.arange(600, 7000, 100),
+        dnn_hidden_units=[[i] for i in np.arange(50, 200, 20)]
+    )
+    for i in range(20):
+        random_hyperparameter = { i: random.choice(search_space[i]) for i in search_space }
+        print("Next params: ", random_hyperparameter)
+        fit(random_hyperparameter)
+
+
+
     ########################
     # END OF YOUR CODE    #
     #######################

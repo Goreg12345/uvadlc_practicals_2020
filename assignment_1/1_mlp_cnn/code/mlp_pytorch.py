@@ -37,7 +37,18 @@ class MLP(nn.Module):
         ########################
         # PUT YOUR CODE HERE  #
         #######################
-        raise NotImplementedError
+
+        super(MLP, self).__init__()
+        layers = list()
+        for n_hidden_neurons in n_hidden:
+            layers.append(nn.Linear(n_inputs, n_hidden_neurons))
+            layers.append(nn.ELU())
+            n_inputs = n_hidden_neurons
+        layers.append(nn.Linear(n_inputs, n_classes))
+        # layers.append(nn.Softmax())
+
+        self.model = nn.Sequential(*layers)
+
         ########################
         # END OF YOUR CODE    #
         #######################
@@ -59,7 +70,9 @@ class MLP(nn.Module):
         ########################
         # PUT YOUR CODE HERE  #
         #######################
-        raise NotImplementedError
+
+        out = self.model(x)
+
         ########################
         # END OF YOUR CODE    #
         #######################
