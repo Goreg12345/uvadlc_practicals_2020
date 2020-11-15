@@ -15,10 +15,12 @@ import cifar10_utils
 import torch
 import torch.nn as nn
 
+import torchvision
+
 # Default constants
 LEARNING_RATE_DEFAULT = 1e-4
 BATCH_SIZE_DEFAULT = 32
-MAX_STEPS_DEFAULT = 5000
+MAX_STEPS_DEFAULT = 500
 EVAL_FREQ_DEFAULT = 500
 OPTIMIZER_DEFAULT = 'ADAM'
 
@@ -32,7 +34,7 @@ def accuracy(predictions, targets):
     """
     Computes the prediction accuracy, i.e. the average of correct predictions
     of the network.
-    
+
     Args:
       predictions: 2D float array of size [batch_size, n_classes]
       labels: 2D int array of size [batch_size, n_classes]
@@ -41,11 +43,11 @@ def accuracy(predictions, targets):
     Returns:
       accuracy: scalar float, the accuracy of predictions,
                 i.e. the average correct predictions over the whole batch
-    
+
     TODO:
     Implement accuracy computation.
     """
-    
+
     ########################
     # PUT YOUR CODE HERE  #
     #######################
@@ -56,27 +58,27 @@ def accuracy(predictions, targets):
     ########################
     # END OF YOUR CODE    #
     #######################
-    
+
     return accuracy
 
 
 def train():
     """
     Performs training and evaluation of ConvNet model.
-  
+
     TODO:
     Implement training and evaluation of ConvNet model. Evaluate your model on the whole test set each eval_freq iterations.
     """
-    
+
     ### DO NOT CHANGE SEEDS!
     # Set the random seeds for reproducibility
     np.random.seed(42)
     torch.manual_seed(42)
-    
+
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    def plot_history(results, ylabel, title="Validation performance of ", model_name=""):
+    def plot_history(results, title="Validation performance of ", model_name=""):
         import matplotlib.pyplot as plt
         import seaborn as sns
 
@@ -84,7 +86,7 @@ def train():
         plt.plot([i for i in range(1, len(results["train_scores"]) + 1)], results["train_scores"], label="Train")
         plt.plot([i for i in range(1, len(results["val_scores"]) + 1)], results["val_scores"], label="Val")
         plt.xlabel("Epochs")
-        plt.ylabel(ylabel)
+        plt.ylabel("Validation accuracy")
         plt.ylim(min(results["val_scores"]), max(results["train_scores"]) * 1.01)
         plt.title(title + model_name)
         plt.legend()
@@ -98,18 +100,19 @@ def train():
             preds = model(x_train)
             preds = preds.squeeze(dim=1)
             accuracies['train_scores'].append(accuracy(preds, y_train).cpu())
-            print("current step: ", accuracy(preds, y_train))
 
             _, y_train = torch.max(y_train, dim=1)
-            losses['train_scores'].append(loss_module(preds, y_train).cpu())
+            losses['train_scores'].append(loss_module(preds, y_train))
+            print("current step: ", accuracy(preds, y_train))
 
             preds = model(x_test)
             preds = preds.squeeze(dim=1)
             accuracies['val_scores'].append(accuracy(preds, y_test).cpu())
-            print("current val accuracy: ", accuracy(preds, y_test))
 
             _, y_test = torch.max(y_test, dim=1)
-            losses['val_scores'].append(loss_module(preds, y_test).cpu())
+            losses['val_scores'].append(loss_module(preds, y_test))
+
+            print("current val accuracy: ", accuracy(preds, y_test))
 
     device = torch.device('cuda')
 
@@ -118,7 +121,7 @@ def train():
     test_data = cifar10_utils.DataSet(cifar10['test'].images, cifar10['test'].labels)
 
     def fit(**hyperparameter):
-        model = ConvNet(3, 10).to(device)
+        model = torchvision.models.vgg19_bn(features=3, num_classes=10, pretrained=True).to(device)
 
         loss_module = nn.CrossEntropyLoss()
         optimizer = hyperparameter['optimizer'](
@@ -136,10 +139,9 @@ def train():
             preds = preds.squeeze(dim=1)
 
             if i % FLAGS.eval_freq == FLAGS.eval_freq - 1:
-                if i % FLAGS.eval_freq == FLAGS.eval_freq - 1:
-                    x_train, y_train = train_data.next_batch(2000)
-                    x_test, y_test = test_data.next_batch(2000)
-                    evaluate(model, x_train, y_train, x_test, y_test, loss_module, accuracies, losses)
+                x_train, y_train = train_data.next_batch(2000)
+                x_test, y_test = test_data.next_batch(2000)
+                evaluate(model, x_train, y_train, x_test, y_test, loss_module, accuracies, losses)
 
             _, y = torch.max(y, dim=1)
             loss = loss_module(preds, y)
@@ -148,20 +150,19 @@ def train():
             loss.backward()
             optimizer.step()
 
-        plot_history(accuracies, "Accuracies", model_name="ConvNet")
-        plot_history(losses, "Losses", title="Train and Validation Losses of ", model_name="ConvNet")
+        plot_history(accuracies, model_name="ConvNet")
+        plot_history(losses, title="Train and Validation Losses of ", model_name="ConvNet")
 
         # Test
-        with torch.no_grad():
-            x, y = test_data.next_batch(2000)
+        x, y = test_data.next_batch(10000)
 
-            x, y = torch.from_numpy(x).float().to(device), torch.from_numpy(y).long().to(device)
+        x, y = torch.from_numpy(x).float().to(device), torch.from_numpy(y).long().to(device)
 
-            preds = model(x)
-            preds = preds.squeeze(dim=1)
+        preds = model(x)
+        preds = preds.squeeze(dim=1)
 
-            print("Test Accuracy: ", accuracy(preds, y))
-            return accuracy(preds, y)
+        print("Test Accuracy: ", accuracy(preds, y))
+        return accuracy(preds, y)
 
     fit(
         optimizer=torch.optim.Adam,
@@ -186,10 +187,10 @@ def main():
     """
     # Print all Flags to confirm parameter settings
     print_flags()
-    
+
     if not os.path.exists(FLAGS.data_dir):
         os.makedirs(FLAGS.data_dir)
-    
+
     # Run the training operation
     train()
 
@@ -208,5 +209,5 @@ if __name__ == '__main__':
     parser.add_argument('--data_dir', type=str, default=DATA_DIR_DEFAULT,
                         help='Directory for storing input data')
     FLAGS, unparsed = parser.parse_known_args()
-    
+
     main()

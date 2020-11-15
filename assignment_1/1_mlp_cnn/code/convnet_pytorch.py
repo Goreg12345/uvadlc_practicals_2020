@@ -6,6 +6,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import torch
+import torch.nn as nn
+
 
 class ConvNet(nn.Module):
     """
@@ -30,7 +33,47 @@ class ConvNet(nn.Module):
         ########################
         # PUT YOUR CODE HERE  #
         #######################
-        raise NotImplementedError
+
+        super(ConvNet, self).__init__()
+
+        class PreAct(nn.Module):
+            def __init__(self, n_channels):
+                super(PreAct, self).__init__()
+                self.batch_norm = nn.BatchNorm2d(n_channels)
+                self.relu = nn.ReLU()
+                self.conv = nn.Conv2d(n_channels, n_channels, kernel_size=3, padding=1)
+
+            def forward(self, x):
+                res = self.batch_norm(x)
+                res = self.relu(res)
+                res = self.conv(res)
+                return x + res
+
+        self.conv0 = nn.Conv2d(n_channels, 64, kernel_size=3, padding=1)
+        self.PreAct1 = PreAct(64)
+
+        self.conv1 = nn.Conv2d(64, 128, 1)
+        self.maxpool1 = nn.MaxPool2d(3, 2, 1)
+        self.PreAct2_a = PreAct(128)
+        self.PreAct2_b = PreAct(128)
+
+        self.conv2 = nn.Conv2d(128, 256, 1)
+        self.maxpool2 = nn.MaxPool2d(3, 2, 1)
+        self.PreAct3_a = PreAct(256)
+        self.PreAct3_b = PreAct(256)
+
+        self.conv3 = nn.Conv2d(256, 512, 1)
+        self.maxpool3 = nn.MaxPool2d(3, 2, 1)
+        self.PreAct4_a = PreAct(512)
+        self.PreAct4_b = PreAct(512)
+
+        self.maxpool4 = nn.MaxPool2d(3, 2, 1)
+        self.PreAct5_a = PreAct(512)
+        self.PreAct5_b = PreAct(512)
+        self.maxpool5 = nn.MaxPool2d(3, 2, 1)
+
+        self.linear = nn.Linear(512, n_classes)
+
         ########################
         # END OF YOUR CODE    #
         #######################
@@ -52,7 +95,33 @@ class ConvNet(nn.Module):
         ########################
         # PUT YOUR CODE HERE  #
         #######################
-        raise NotImplementedError
+
+        x = self.conv0(x)
+        x = self.PreAct1(x)
+
+        x = self.conv1(x)
+        x = self.maxpool1(x)
+        x = self.PreAct2_a(x)
+        x = self.PreAct2_b(x)
+
+        x = self.conv2(x)
+        x = self.maxpool2(x)
+        x = self.PreAct3_a(x)
+        x = self.PreAct3_b(x)
+
+        x = self.conv3(x)
+        x = self.maxpool3(x)
+        x = self.PreAct4_a(x)
+        x = self.PreAct4_b(x)
+
+        x = self.maxpool4(x)
+        x = self.PreAct5_a(x)
+        x = self.PreAct5_b(x)
+        x = self.maxpool5(x)
+
+        x = torch.flatten(x, start_dim=1)
+        out = self.linear(x)
+
         ########################
         # END OF YOUR CODE    #
         #######################

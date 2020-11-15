@@ -16,7 +16,7 @@ class MLP(nn.Module):
     Once initialized an MLP object can perform forward.
     """
     
-    def __init__(self, n_inputs, n_hidden, n_classes):
+    def __init__(self, n_inputs, n_hidden, n_classes, hyperparameter=dict(n_layers=1, dropout=0)):
         """
         Initializes MLP object.
         
@@ -40,10 +40,12 @@ class MLP(nn.Module):
 
         super(MLP, self).__init__()
         layers = list()
-        for n_hidden_neurons in n_hidden:
+        layers.append(nn.Dropout(0.5))
+        for n_hidden_neurons in n_hidden * hyperparameter['n_layers']:
             layers.append(nn.Linear(n_inputs, n_hidden_neurons))
             layers.append(nn.ELU())
             n_inputs = n_hidden_neurons
+        layers.append(nn.Dropout(hyperparameter['dropout']))
         layers.append(nn.Linear(n_inputs, n_classes))
         # layers.append(nn.Softmax())
 

@@ -91,6 +91,20 @@ def train():
     # PUT YOUR CODE HERE  #
     #######################
 
+    def plot_history(results, model_name=""):
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+
+        sns.set()
+        plt.plot([i for i in range(1, len(results["train_scores"]) + 1)], results["train_scores"], label="Train")
+        plt.plot([i for i in range(1, len(results["val_scores"]) + 1)], results["val_scores"], label="Val")
+        plt.xlabel("Epochs")
+        plt.ylabel("Validation accuracy")
+        plt.ylim(min(results["val_scores"]), max(results["train_scores"]) * 1.01)
+        plt.title("Validation performance of %s" % model_name)
+        plt.legend()
+        plt.show()
+
     device = torch.device('cuda')
 
     cifar10 = cifar10_utils.get_cifar10(f'cifar10/cifar-10-batches-py')
@@ -98,7 +112,7 @@ def train():
     test_data = cifar10_utils.DataSet(cifar10['test'].images, cifar10['test'].labels)
 
     def fit(hyperparameter):
-        model = MLP(3 * 32 * 32, hyperparameter['dnn_hidden_units'], 10).to(device)
+        model = MLP(3 * 32 * 32, hyperparameter['dnn_hidden_units'], 10, hyperparameter).to(device)
 
         loss_module = nn.CrossEntropyLoss()
         optimizer = hyperparameter['optimizer'](
@@ -107,6 +121,7 @@ def train():
 
         # train_loader = torch.utils.data.Dataloader(train_data, batch_size=FLAGS.batch_size, shuffle=True, drop_last=True)
 
+        results = dict(train_scores=list(), val_scores=list())
         for i in range(hyperparameter['n_steps']):
             x, y = train_data.next_batch(FLAGS.batch_size)
 
@@ -115,7 +130,14 @@ def train():
             preds = model(torch.flatten(x, start_dim=1))
             preds = preds.squeeze(dim=1)
 
-            if i % 50000 == 49999:
+            if i % 500 == 499:
+                results['train_scores'].append(accuracy(preds, y).cpu())
+
+                x_test, y_test = test_data.next_batch(300)
+                x_test, y_test = torch.from_numpy(x_test).float().to(device), torch.from_numpy(y_test).long().to(device)
+                preds_test = model(torch.flatten(x_test, start_dim=1))
+                preds_test = preds_test.squeeze(dim=1)
+                results['val_scores'].append(accuracy(preds_test, y_test).cpu())
                 print("current step: ", accuracy(preds, y))
 
             _, y = torch.max(y, dim=1)
@@ -124,6 +146,8 @@ def train():
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
+        plot_history(results)
 
         # Test
         x, y = test_data.next_batch(10000)
@@ -134,19 +158,25 @@ def train():
         preds = preds.squeeze(dim=1)
 
         print("Test Accuracy: ", accuracy(preds, y))
+        return accuracy(preds, y)
 
 
     # Randomized Search
     search_space = dict(
-        learning_rate=[0.0006, 0.001, 0.0015],
+        learning_rate=[0.0008, 0.001, 0.0015],
         optimizer=[torch.optim.SGD, torch.optim.Adam, torch.optim.Adagrad, torch.optim.RMSprop],
-        n_steps=np.arange(600, 7000, 100),
-        dnn_hidden_units=[[i] for i in np.arange(50, 200, 20)]
+        n_steps=np.arange(10000, 15000, 100),
+        dnn_hidden_units=[[i] for i in np.arange(30, 250, 20)],
+        dropout=np.arange(0., 0.5, 0.1),
+        n_layers=np.arange(1, 4)
     )
-    for i in range(20):
-        random_hyperparameter = { i: random.choice(search_space[i]) for i in search_space }
+    max_acc = 0
+    for i in range(50):
+        random_hyperparameter = { j: random.choice(search_space[j]) for j in search_space }
         print("Next params: ", random_hyperparameter)
-        fit(random_hyperparameter)
+        acc = fit(random_hyperparameter)
+        max_acc = max(max_acc, acc)
+    print('Best Accuracy: ', max_acc)
 
 
 
